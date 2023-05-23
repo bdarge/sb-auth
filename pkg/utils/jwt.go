@@ -17,24 +17,35 @@ type JwtWrapper struct {
 
 type jwtClaims struct {
 	jwt.StandardClaims
-	Id    int64  `json:"id"`
-	Email string `json:"email"`
+	UserId     uint32   `json:"userId"`
+	AccountId  uint32   `json:"accountId"`
+	Email      string   `json:"email"`
+	Roles      []string `json:"roles"`
+	BusinessId uint32   `json:"businessId"`
 }
 
-func (w *JwtWrapper) GenerateToken(account models.Account) (signedToken string, err error) {
+func (w *JwtWrapper) GenerateToken(user models.User) (signedToken string, err error) {
 	expireOn := time.Now().Local().Add(time.Minute * time.Duration(w.ExpirationHours)).Unix()
-	claims := &jwtClaims{
-		Id:    int64(account.ID),
-		Email: account.Email,
+	claim := &jwtClaims{
+		AccountId:  user.Account.ID,
+		UserId:     user.ID,
+		Email:      user.Account.Email,
+		BusinessId: user.BusinessID,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expireOn,
 			Issuer:    w.Issuer,
 		},
 	}
 
+	var roles []string
+	for _, value := range user.Roles {
+		roles = append(roles, value.Name)
+	}
+	claim.Roles = roles
+
 	log.Printf("token expires on: %v", expireOn)
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claim)
 
 	signedToken, err = token.SignedString([]byte(w.SecretKey))
 

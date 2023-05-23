@@ -17,5 +17,5 @@ type Account struct {
 	Model
 	Email    string `gorm:"unique;not null;default:null" json:"email"`
 	Password string `gorm:"not null;default:null" json:"-"`
-	UserID   int    `json:"userId"`
+	UserID   uint32 `json:"userId"`
 }

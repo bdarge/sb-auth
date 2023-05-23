@@ -1,17 +1,29 @@
 package models
 
+// Address Model
+type Address struct {
+	Model
+	Street     string `json:"street"`
+	PostalCode string `gorm:"column:postal_code" json:"postalCode"`
+	City       string `json:"city"`
+	State      string `json:"state"`
+	Country    string `json:"country"`
+	Landline   string `json:"landline"`
+	Mobile     string `json:"mobile"`
+	UserID     uint32 `json:"userId"`
+}
+
+type Role struct {
+	Model
+	Name string `json:"name"`
+}
+
 // User Model
 type User struct {
 	Model
-	UserName      string `json:"username"`
-	HourlyRate    string `json:"hourlyRate"`
-	BusinessName  string `json:"businessName"`
-	Street        string `json:"street"`
-	PostalCode    string `json:"postalCode"`
-	City          string `json:"city"`
-	Country       string `json:"country"`
-	LandLinePhone string `gorm:"column:landline_phone" json:"landlinePhone"`
-	MobilePhone   string `gorm:"column:mobile_phone" json:"mobilePhone"`
-	Vat           string `json:"vat"`
-	Account       Account
+	UserName   string  `gorm:"column:username" json:"username"`
+	BusinessID uint32  `json:"businessId"`
+	Address    Address `json:"address"`
+	Account    Account `json:"account"`
+	Roles      []Role  `gorm:"many2many:user_roles;" json:"roles"`
 }

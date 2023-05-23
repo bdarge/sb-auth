@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"errors"
+	"gorm.io/gorm"
 	"log"
 	"net/http"
 
@@ -13,13 +15,13 @@ import (
 
 type Server struct {
 	auth.UnimplementedAuthServiceServer
-	DbAccessHandler db.Handler
-	Jwt             utils.JwtWrapper
+	DBHandler db.Handler
+	Jwt       utils.JwtWrapper
 }
 
 func (s *Server) Register(ctx context.Context, req *auth.RegisterRequest) (*auth.RegisterResponse, error) {
 	var acct models.Account
-	if result := s.DbAccessHandler.DB.Where(&models.Account{Email: req.Email}).First(&acct); result.Error == nil {
+	if result := s.DBHandler.DB.Where(&models.Account{Email: req.Email}).First(&acct); result.Error == nil {
 		log.Printf("found: %v", acct)
 		return &auth.RegisterResponse{
 			Status: http.StatusConflict,
@@ -30,7 +32,7 @@ func (s *Server) Register(ctx context.Context, req *auth.RegisterRequest) (*auth
 	acct.Email = req.Email
 	acct.Password = utils.HashPassword(req.Password)
 
-	if dbc := s.DbAccessHandler.DB.Create(&models.User{
+	if dbc := s.DBHandler.DB.Create(&models.User{
 		Account: acct,
 	}); dbc.Error != nil {
 		return &auth.RegisterResponse{
@@ -45,20 +47,34 @@ func (s *Server) Register(ctx context.Context, req *auth.RegisterRequest) (*auth
 }
 
 func (s *Server) Login(ctx context.Context, req *auth.LoginRequest) (*auth.LoginResponse, error) {
-	var user models.Account
+	var user models.User
 
-	if result := s.DbAccessHandler.DB.Where(&models.Account{Email: req.Email}).First(&user); result.Error != nil {
+	result := s.DBHandler.DB.Model(&user).
+		Preload("Roles").
+		Joins("Account").
+		Where("email = ?", req.Email).
+		First(&user)
+
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return &auth.LoginResponse{
+				Status: http.StatusNotFound,
+				Error:  "User not found",
+			}, nil
+		}
 		return &auth.LoginResponse{
-			Status: http.StatusNotFound,
+			Status: http.StatusInternalServerError,
 			Error:  "User not found",
 		}, nil
 	}
 
-	match := utils.CheckPasswordHash(req.Password, user.Password)
+	log.Printf("account found %v", user)
+
+	match := utils.CheckPasswordHash(req.Password, user.Account.Password)
 
 	if !match {
 		return &auth.LoginResponse{
-			Status: http.StatusNotFound,
+			Status: http.StatusForbidden,
 			Error:  "User not found",
 		}, nil
 	}
@@ -83,7 +99,7 @@ func (s *Server) Validate(ctx context.Context, req *auth.ValidateRequest) (*auth
 
 	var user models.Account
 
-	if result := s.DbAccessHandler.DB.Where(&models.Account{Email: claims.Email}).First(&user); result.Error != nil {
+	if result := s.DBHandler.DB.Where(&models.Account{Email: claims.Email}).First(&user); result.Error != nil {
 		return &auth.ValidateResponse{
 			Status: http.StatusNotFound,
 			Error:  "User not found",

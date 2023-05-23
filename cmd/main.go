@@ -38,8 +38,8 @@ func main() {
 	fmt.Println("Auth service on", c.Port)
 
 	s := services.Server{
-		DbAccessHandler: dbHandler,
-		Jwt:             jwt,
+		DBHandler: dbHandler,
+		Jwt:       jwt,
 	}
 
 	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(interceptors.UnaryServerInterceptor()))

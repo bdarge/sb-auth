@@ -1,4 +1,4 @@
-FROM golang:1.19-alpine as builder
+FROM golang:1.20-alpine as builder
 
 WORKDIR /tmp/app
 
@@ -12,7 +12,7 @@ ADD cmd cmd
 
 RUN go build -o ./out cmd/main.go
 
-FROM golang:1.19-alpine as dev
+FROM golang:1.20-alpine as dev
 
 WORKDIR /bin/app
 
