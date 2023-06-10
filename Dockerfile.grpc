@@ -1,22 +1,46 @@
 FROM golang:1.20-alpine as builder
 
+ENV APP=/go/app
+
+WORKDIR $APP
+
+# gcompat is required to use protoc - https://stackoverflow.com/questions/64447731/protoc-not-found-on-an-alpine-based-docker-container-running-protocol-buffers
+RUN apk update &&  \
+    apk add gcompat && \
+    apk add curl && \
+    apk add make
+
+RUN PB_REL="https://github.com/protocolbuffers/protobuf/releases" && \
+    curl -LO $PB_REL/download/v3.15.8/protoc-3.15.8-linux-aarch_64.zip
+
+RUN unzip protoc-3.15.8-linux-aarch_64.zip -d $APP/.local
+
+ENV PATH="$PATH:$APP/.local/bin"
+
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28 && \
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2 && \
+    export PATH="$PATH:$(go env GOPATH)/bin"
+
 WORKDIR /tmp/app
 
-COPY go.mod .
-
-COPY go.sum .
+COPY . .
 
 RUN go mod download
 
-ADD cmd cmd
+RUN make proto
 
-RUN go build -o ./out cmd/main.go
+RUN go build -o ./build cmd/main.go
 
 FROM golang:1.20-alpine as dev
+
+RUN apk update &&  \
+    apk add make # \
 
 WORKDIR /bin/app
 
 RUN ["go", "install", "github.com/githubnemo/CompileDaemon@latest"]
+
+RUN make proto
 
 ENTRYPOINT CompileDaemon -log-prefix=false -build="go build -o ./bin/app ./cmd/" -command="./bin/app"
 
@@ -26,8 +50,8 @@ RUN apk --no-cache add ca-certificates git bash
 
 WORKDIR /app
 
-COPY --from=builder /tmp/app/out /app
+COPY --from=builder /tmp/app/build /app/auth
 
-EXPOSE 8080
+EXPOSE 50051
 
-CMD ["/app"]
+CMD ["/app/auth"]
