@@ -1,21 +1,17 @@
 FROM golang:1.20-alpine as builder
 
-ENV APP=/go/app
+ENV APP=/app
 
 WORKDIR $APP
 
-# gcompat is required to use protoc - https://stackoverflow.com/questions/64447731/protoc-not-found-on-an-alpine-based-docker-container-running-protocol-buffers
-RUN apk update &&  \
-    apk add gcompat && \
-    apk add curl && \
-    apk add make
+RUN apk update && apk add curl unzip make
 
 RUN PB_REL="https://github.com/protocolbuffers/protobuf/releases" && \
-    curl -LO $PB_REL/download/v3.15.8/protoc-3.15.8-linux-aarch_64.zip
+    curl -LO $PB_REL/download/v23.4/protoc-23.4-linux-aarch_64.zip
 
-RUN unzip protoc-3.15.8-linux-aarch_64.zip -d $APP/.local
+RUN unzip protoc-23.4-linux-aarch_64.zip -d $APP/.local
 
-ENV PATH="$PATH:$APP/.local/bin"
+ENV PATH="${PATH}:$APP/.local/bin"
 
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28 && \
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2 && \
@@ -47,6 +43,8 @@ ENTRYPOINT CompileDaemon -log-prefix=false -build="go build -o ./bin/app ./cmd/"
 FROM alpine:latest as prod
 
 RUN apk --no-cache add ca-certificates git bash
+
+LABEL org.opencontainers.image.source=https://github.com/bdarge/sb-auth
 
 WORKDIR /app
 
