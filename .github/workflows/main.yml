@@ -2,7 +2,7 @@
 # To get a newer version, you will need to update the SHA.
 # You can also reference a tag or branch, but the action may change without warning.
 
-name: ui
+name: api-gateway
 
 on:
   release:
@@ -14,46 +14,31 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  test:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
-    container: buildkite/puppeteer:latest
-    strategy:
-      matrix:
-        node-version: [16.x]
-
-    defaults:
-      run:
-        working-directory: .
-    steps:
-      - uses: actions/checkout@v2
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v1
-        with:
-          node-version: ${{ matrix.node-version }}
-      - run: npm ci
-      - run: npm run test
   build-and-push-image:
     runs-on: ubuntu-latest
-    needs: test
     permissions:
       contents: read
       packages: write
     env:
-        NODE_ENV: PROD
-        IMAGE_NAME: sb-ui
+      NODE_ENV: PROD
+      IMAGE_NAME: sb-api-gateway
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v3.5.3
+        with:
+          token: ${{ secrets.PAT }}
+          submodules: true
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2.2.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2.8.0
+        with:
+          buildkitd-flags: --debug
 
       - name: Log in to the Container registry
-        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -61,15 +46,15 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        uses: docker/metadata-action@818d4b7b91585d195f67373fd9cb0332e31a7175
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        uses: docker/build-push-action@2eb1c1961a95fc15694676618e422e8ba1d63825
         with:
           context: .
-          file: ./Dockerfile
+          file: ./Dockerfile.grpc
           push: true
           target: prod
           platforms: linux/arm64
