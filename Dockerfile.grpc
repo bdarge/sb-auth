@@ -46,6 +46,8 @@ RUN apk --no-cache add ca-certificates git bash
 
 LABEL org.opencontainers.image.source=https://github.com/bdarge/sb-auth
 
+LABEL org.opencontainers.image.description="Small Business (sb) auth app"
+
 WORKDIR /app
 
 COPY --from=builder /tmp/app/build /app/auth
