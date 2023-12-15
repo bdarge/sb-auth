@@ -8,9 +8,9 @@ type Config struct {
 	JWTSecretKey string `mapstructure:"JWT_SECRET_KEY"`
 }
 
-func LoadConfig() (config Config, err error) {
+func LoadConfig(target string) (config Config, err error) {
 	viper.AddConfigPath("./envs")
-	viper.SetConfigName("dev")
+	viper.SetConfigName(target)
 	viper.SetConfigType("env")
 
 	viper.AutomaticEnv()

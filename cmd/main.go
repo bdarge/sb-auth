@@ -5,6 +5,7 @@ import (
 	"github.com/bdarge/auth/pkg/interceptors"
 	"log"
 	"net"
+	"os"
 
 	"github.com/bdarge/auth/out/auth"
 	"github.com/bdarge/auth/pkg/config"
@@ -15,7 +16,11 @@ import (
 )
 
 func main() {
-	c, err := config.LoadConfig()
+	environment := os.Getenv("ENV")
+	if environment == "" {
+		environment = "dev"
+	}
+	c, err := config.LoadConfig(environment)
 
 	if err != nil {
 		log.Fatalln("Failed loading config", err)
@@ -32,10 +37,10 @@ func main() {
 	lis, err := net.Listen("tcp", c.Port)
 
 	if err != nil {
-		log.Fatalln("Failed to listing:", err)
+		log.Fatalf("Listing on port %s has failed: %v", c.Port, err)
 	}
 
-	fmt.Println("Auth service on", c.Port)
+	fmt.Printf("auth service is listening on %s", c.Port)
 
 	s := services.Server{
 		DBHandler: dbHandler,
