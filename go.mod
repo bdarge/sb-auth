@@ -4,10 +4,10 @@ go 1.20
 
 require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/spf13/viper v1.18.1
-	golang.org/x/crypto v0.16.0
-	google.golang.org/grpc v1.60.0
-	google.golang.org/protobuf v1.31.0
+	github.com/spf13/viper v1.18.2
+	golang.org/x/crypto v0.17.0
+	google.golang.org/grpc v1.60.1
+	google.golang.org/protobuf v1.32.0
 	gorm.io/driver/mysql v1.5.2
 	gorm.io/gorm v1.25.2-0.20230530020048-26663ab9bf55
 )
