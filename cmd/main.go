@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"github.com/bdarge/auth/pkg/interceptors"
 	"github.com/bdarge/auth/pkg/models"
 	healthgrpc "google.golang.org/grpc/health/grpc_health_v1"
@@ -18,6 +17,7 @@ import (
 	"github.com/bdarge/auth/pkg/db"
 	"github.com/bdarge/auth/pkg/services"
 	"github.com/bdarge/auth/pkg/utils"
+	"golang.org/x/exp/slog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 )
@@ -28,6 +28,9 @@ var (
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
 	environment := os.Getenv("ENV")
 	if environment == "" {
 		environment = "dev"
@@ -41,9 +44,11 @@ func main() {
 	dbHandler := db.Init(c.DSN)
 
 	jwt := utils.JwtWrapper{
-		SecretKey:       c.JWTSecretKey,
-		Issuer:          "go-grpc-auth",
-		ExpirationHours: 50,
+		TokenSecretKey:        c.TokenSecretKey,
+		Issuer:                c.TokenIssuer,
+		TokenExpOn:            c.TokenExpOn,
+		RefreshTokenSecretKey: c.RefreshTokenSecretKey,
+		RefreshTokenExpOn:     c.RefreshTokenExpOn,
 	}
 
 	lis, err := net.Listen("tcp", c.Port)
@@ -52,7 +57,7 @@ func main() {
 		log.Fatalf("Listing on port %s has failed: %v", c.Port, err)
 	}
 
-	fmt.Printf("auth service is listening on %s", c.Port)
+	slog.Info("auth service is listening", "Port", c.Port)
 
 	s := services.Server{
 		DBHandler: dbHandler,

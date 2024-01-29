@@ -6,11 +6,13 @@ import (
 	"gorm.io/gorm"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/bdarge/auth/out/auth"
 	"github.com/bdarge/auth/pkg/db"
 	"github.com/bdarge/auth/pkg/models"
 	"github.com/bdarge/auth/pkg/utils"
+	"golang.org/x/exp/slog"
 )
 
 type Server struct {
@@ -19,7 +21,7 @@ type Server struct {
 	Jwt       utils.JwtWrapper
 }
 
-func (s *Server) Register(ctx context.Context, req *auth.RegisterRequest) (*auth.RegisterResponse, error) {
+func (s *Server) Register(_ context.Context, req *auth.RegisterRequest) (*auth.RegisterResponse, error) {
 	var acct models.Account
 	if result := s.DBHandler.DB.Where(&models.Account{Email: req.Email}).First(&acct); result.Error == nil {
 		log.Printf("found: %v", acct)
@@ -46,7 +48,7 @@ func (s *Server) Register(ctx context.Context, req *auth.RegisterRequest) (*auth
 	}, nil
 }
 
-func (s *Server) Login(ctx context.Context, req *auth.LoginRequest) (*auth.LoginResponse, error) {
+func (s *Server) Login(_ context.Context, req *auth.LoginRequest) (*auth.LoginResponse, error) {
 	var user models.User
 
 	result := s.DBHandler.DB.Model(&user).
@@ -79,19 +81,20 @@ func (s *Server) Login(ctx context.Context, req *auth.LoginRequest) (*auth.Login
 		}, nil
 	}
 
-	token, _ := s.Jwt.GenerateToken(user)
+	authObj, _ := s.Jwt.GenerateToken(user, nil)
 
 	return &auth.LoginResponse{
-		Status: http.StatusOK,
-		Token:  token,
+		Status:       http.StatusOK,
+		Token:        authObj.Token,
+		RefreshToken: authObj.RefreshToken,
 	}, nil
 }
 
-func (s *Server) Validate(ctx context.Context, req *auth.ValidateRequest) (*auth.ValidateResponse, error) {
+func (s *Server) ValidateToken(_ context.Context, req *auth.ValidateTokenRequest) (*auth.ValidateTokenResponse, error) {
 	claims, err := s.Jwt.ValidateToken(req.Token)
 
 	if err != nil {
-		return &auth.ValidateResponse{
+		return &auth.ValidateTokenResponse{
 			Status: http.StatusBadRequest,
 			Error:  err.Error(),
 		}, nil
@@ -100,14 +103,54 @@ func (s *Server) Validate(ctx context.Context, req *auth.ValidateRequest) (*auth
 	var user models.Account
 
 	if result := s.DBHandler.DB.Where(&models.Account{Email: claims.Email}).First(&user); result.Error != nil {
-		return &auth.ValidateResponse{
+		return &auth.ValidateTokenResponse{
 			Status: http.StatusNotFound,
 			Error:  "User not found",
 		}, nil
 	}
 
-	return &auth.ValidateResponse{
+	return &auth.ValidateTokenResponse{
 		Status: http.StatusOK,
 		UserId: int64(user.ID),
+	}, nil
+}
+
+func (s *Server) RefreshToken(_ context.Context, req *auth.RefreshTokenRequest) (*auth.LoginResponse, error) {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
+	slog.Info("refresh token service")
+
+	claims, err := s.Jwt.RefreshToken(req.Token)
+
+	if err != nil {
+		slog.Error(err.Error())
+		return &auth.LoginResponse{
+			Status: http.StatusBadRequest,
+			Error:  err.Error(),
+		}, nil
+	}
+
+	slog.Info("Found claims", "claims", claims)
+
+	var user models.User
+
+	if s.DBHandler.DB.
+		Model(models.User{Model: models.Model{ID: claims.UserId}}).
+		Preload("Account").First(&user).Error != nil {
+		return &auth.LoginResponse{
+			Status: http.StatusForbidden,
+			Error:  "Invalid claim attributes",
+		}, nil
+	}
+
+	// generate a new token
+	slog.Info("generate a new token", "user", user)
+	authObj, _ := s.Jwt.GenerateToken(user, &req.Token)
+
+	return &auth.LoginResponse{
+		Status:       http.StatusOK,
+		Token:        authObj.Token,
+		RefreshToken: authObj.RefreshToken,
 	}, nil
 }

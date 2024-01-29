@@ -27,3 +27,9 @@ type User struct {
 	Account    Account `json:"account"`
 	Roles      []Role  `gorm:"many2many:user_roles;" json:"roles"`
 }
+
+// Auth Model
+type Auth struct {
+	Token        string
+	RefreshToken string
+}
