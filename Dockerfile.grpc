@@ -1,5 +1,7 @@
 FROM golang:1.23.2-alpine3.19 as builder
 
+LABEL org.opencontainers.image.description="Authenticator app"
+
 ENV APP /app
 
 WORKDIR $APP
