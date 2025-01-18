@@ -5,7 +5,6 @@ import (
 	"github.com/bdarge/auth/pkg/interceptors"
 	"github.com/bdarge/auth/pkg/models"
 	healthgrpc "google.golang.org/grpc/health/grpc_health_v1"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"gorm.io/gorm"
 	"log"
 	"net"
@@ -32,34 +31,34 @@ func main() {
 	if environment == "" {
 		environment = "dev"
 	}
-	c, err := config.LoadConfig(environment)
+	conf, err := config.LoadConfig(environment)
 
 	if err != nil {
 		log.Fatalln("Failed loading config", err)
 	}
 
 	var programLevel = new(slog.LevelVar)
-	programLevel.Set(c.LogLevel)
+	programLevel.Set(conf.LogLevel)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: programLevel}))
 	slog.SetDefault(logger)
 
-	dbHandler := db.Init(c.DSN)
+	dbHandler := db.Init(conf.DSN)
 
 	jwt := utils.JwtWrapper{
-		TokenSecretKey:        c.TokenSecretKey,
-		Issuer:                c.TokenIssuer,
-		TokenExpOn:            c.TokenExpOn,
-		RefreshTokenSecretKey: c.RefreshTokenSecretKey,
-		RefreshTokenExpOn:     c.RefreshTokenExpOn,
+		TokenSecretKey:        conf.TokenSecretKey,
+		Issuer:                conf.TokenIssuer,
+		TokenExpOn:            conf.TokenExpOn,
+		RefreshTokenSecretKey: conf.RefreshTokenSecretKey,
+		RefreshTokenExpOn:     conf.RefreshTokenExpOn,
 	}
 
-	lis, err := net.Listen("tcp", c.Port)
+	lis, err := net.Listen("tcp", conf.Port)
 
 	if err != nil {
-		log.Fatalf("Listing on port %s has failed: %v", c.Port, err)
+		log.Fatalf("Listing on port %s has failed: %v", conf.Port, err)
 	}
 
-	slog.Info("Auth service is listening", "Port", c.Port)
+	slog.Info("Auth service is listening", "Port", conf.Port)
 
 	s := services.Server{
 		DBHandler: dbHandler,
@@ -78,15 +77,15 @@ func main() {
 
 	go func() {
 		// asynchronously inspect dependencies and toggle serving status as needed
-		next := healthpb.HealthCheckResponse_SERVING
+		next := healthgrpc.HealthCheckResponse_SERVING
 
 		for {
 			healthcheck.SetServingStatus(system, next)
 			err = isDbConnectionWorks(s.DBHandler.DB)
 			if err != nil {
-				next = healthpb.HealthCheckResponse_NOT_SERVING
+				next = healthgrpc.HealthCheckResponse_NOT_SERVING
 			} else {
-				next = healthpb.HealthCheckResponse_SERVING
+				next = healthgrpc.HealthCheckResponse_SERVING
 			}
 			time.Sleep(*sleep)
 		}
