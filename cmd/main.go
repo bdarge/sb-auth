@@ -27,6 +27,10 @@ var (
 )
 
 func main() {
+	var programLevel = new(slog.LevelVar)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: programLevel}))
+	slog.SetDefault(logger)
+
 	environment := os.Getenv("ENV")
 	if environment == "" {
 		environment = "dev"
@@ -37,10 +41,7 @@ func main() {
 		log.Fatalln("Failed loading config", err)
 	}
 
-	var programLevel = new(slog.LevelVar)
 	programLevel.Set(conf.LogLevel)
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: programLevel}))
-	slog.SetDefault(logger)
 
 	dbHandler := db.Init(conf.DSN)
 
