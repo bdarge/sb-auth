@@ -28,9 +28,6 @@ var (
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
-
 	environment := os.Getenv("ENV")
 	if environment == "" {
 		environment = "dev"
@@ -40,6 +37,11 @@ func main() {
 	if err != nil {
 		log.Fatalln("Failed loading config", err)
 	}
+
+	var programLevel = new(slog.LevelVar)
+	programLevel.Set(c.LogLevel)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: programLevel}))
+	slog.SetDefault(logger)
 
 	dbHandler := db.Init(c.DSN)
 
@@ -57,7 +59,7 @@ func main() {
 		log.Fatalf("Listing on port %s has failed: %v", c.Port, err)
 	}
 
-	slog.Info("auth service is listening", "Port", c.Port)
+	slog.Info("Auth service is listening", "Port", c.Port)
 
 	s := services.Server{
 		DBHandler: dbHandler,
@@ -80,7 +82,7 @@ func main() {
 
 		for {
 			healthcheck.SetServingStatus(system, next)
-			err = IsDbConnectionWorks(s.DBHandler.DB)
+			err = isDbConnectionWorks(s.DBHandler.DB)
 			if err != nil {
 				next = healthpb.HealthCheckResponse_NOT_SERVING
 			} else {
@@ -91,6 +93,6 @@ func main() {
 	}()
 }
 
-func IsDbConnectionWorks(DB *gorm.DB) error {
+func isDbConnectionWorks(DB *gorm.DB) error {
 	return DB.First(&models.Account{}).Error
 }
