@@ -24,11 +24,9 @@ func LoadConfig(target string) (config Config, err error) {
 
 	err = viper.ReadInConfig()
 
-	if err != nil {
+	if err = viper.ReadInConfig(); err != nil {
 		return
 	}
-
 	err = viper.Unmarshal(&config)
-
 	return
 }
