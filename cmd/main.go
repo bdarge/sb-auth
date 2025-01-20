@@ -40,7 +40,7 @@ func main() {
 	if err != nil {
 		log.Fatalln("Failed loading config", err)
 	}
-
+	slog.Info("See config", "config", conf)
 	programLevel.Set(conf.LogLevel)
 
 	dbHandler := db.Init(conf.DSN)
