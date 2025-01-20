@@ -5,7 +5,7 @@ import "github.com/spf13/viper"
 
 // Config app configuration
 type Config struct {
-	Port                  string `mapstructure:"PORT"`
+	ServerPort                  string `mapstructure:"PORT"`
 	DSN                   string `mapstructure:"DSN"`
 	TokenSecretKey        string `mapstructure:"JWT_TOKEN_SECRET_KEY"`
 	TokenExpOn            int    `mapstructure:"JWT_TOKEN_EXP_ON"`
@@ -15,15 +15,12 @@ type Config struct {
 	LogLevel							slog.Level    `mapstructure:"LOG_LEVEL"`
 }
 
-// LoadConfig load configuration
+// LoadConfig loads config from files
 func LoadConfig(target string) (config Config, err error) {
 	viper.AddConfigPath("./envs")
 	viper.SetConfigName(target)
 	viper.SetConfigType("env")
 	viper.AutomaticEnv()
-
-	err = viper.ReadInConfig()
-
 	if err = viper.ReadInConfig(); err != nil {
 		return
 	}

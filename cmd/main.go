@@ -53,13 +53,13 @@ func main() {
 		RefreshTokenExpOn:     conf.RefreshTokenExpOn,
 	}
 
-	lis, err := net.Listen("tcp", conf.Port)
+	lis, err := net.Listen("tcp", conf.ServerPort)
 
 	if err != nil {
-		log.Fatalf("Listing on port %s has failed: %v", conf.Port, err)
+		log.Fatalf("Listing on port %s has failed: %v", conf.ServerPort, err)
 	}
 
-	slog.Info("Auth service is listening", "Port", conf.Port)
+	slog.Info("Auth service is listening", "Port", conf.ServerPort)
 
 	s := services.Server{
 		DBHandler: dbHandler,
