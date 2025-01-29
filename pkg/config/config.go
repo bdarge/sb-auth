@@ -1,7 +1,9 @@
 package config
 
-import "golang.org/x/exp/slog"
-import "github.com/spf13/viper"
+import (
+	"github.com/spf13/viper"
+	"golang.org/x/exp/slog"
+)
 
 // Config app configuration
 type Config struct {
