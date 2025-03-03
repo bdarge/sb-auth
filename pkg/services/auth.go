@@ -15,12 +15,14 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+// Server struct
 type Server struct {
 	auth.UnimplementedAuthServiceServer
 	DBHandler db.Handler
 	Jwt       utils.JwtWrapper
 }
 
+// Register register a user
 func (s *Server) Register(_ context.Context, req *auth.RegisterRequest) (*auth.RegisterResponse, error) {
 	var acct models.Account
 	if result := s.DBHandler.DB.Where(&models.Account{Email: req.Email}).First(&acct); result.Error == nil {
@@ -48,6 +50,7 @@ func (s *Server) Register(_ context.Context, req *auth.RegisterRequest) (*auth.R
 	}, nil
 }
 
+// Login auth a user
 func (s *Server) Login(_ context.Context, req *auth.LoginRequest) (*auth.LoginResponse, error) {
 	var user models.User
 
@@ -58,6 +61,7 @@ func (s *Server) Login(_ context.Context, req *auth.LoginRequest) (*auth.LoginRe
 		First(&user)
 
 	if result.Error != nil {
+		log.Printf("User not found for %s", req.Email)
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return &auth.LoginResponse{
 				Status: http.StatusNotFound,
@@ -70,11 +74,12 @@ func (s *Server) Login(_ context.Context, req *auth.LoginRequest) (*auth.LoginRe
 		}, nil
 	}
 
-	log.Printf("account found %v", user)
+	log.Printf("User found %v", user)
 
 	match := utils.CheckPasswordHash(req.Password, user.Account.Password)
 
 	if !match {
+		log.Printf("Invalid password for %v", user)
 		return &auth.LoginResponse{
 			Status: http.StatusForbidden,
 			Error:  "User not found",
@@ -90,6 +95,7 @@ func (s *Server) Login(_ context.Context, req *auth.LoginRequest) (*auth.LoginRe
 	}, nil
 }
 
+// ValidateToken validate a token
 func (s *Server) ValidateToken(_ context.Context, req *auth.ValidateTokenRequest) (*auth.ValidateTokenResponse, error) {
 	claims, err := s.Jwt.ValidateToken(req.Token)
 
@@ -115,6 +121,7 @@ func (s *Server) ValidateToken(_ context.Context, req *auth.ValidateTokenRequest
 	}, nil
 }
 
+// RefreshToken refresh a token
 func (s *Server) RefreshToken(_ context.Context, req *auth.RefreshTokenRequest) (*auth.LoginResponse, error) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
