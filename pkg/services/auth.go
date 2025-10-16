@@ -102,7 +102,7 @@ func (s *Server) ValidateToken(_ context.Context, req *auth.ValidateTokenRequest
 	if err != nil {
 		return &auth.ValidateTokenResponse{
 			Status: http.StatusBadRequest,
-			Error:  err.Error(),
+			Error:  "Failed to validate token",
 		}, nil
 	}
 
@@ -134,7 +134,7 @@ func (s *Server) RefreshToken(_ context.Context, req *auth.RefreshTokenRequest) 
 		slog.Error(err.Error())
 		return &auth.LoginResponse{
 			Status: http.StatusBadRequest,
-			Error:  err.Error(),
+			Error:  "Failed to refresh token",
 		}, nil
 	}
 

@@ -1,8 +1,8 @@
-FROM golang:1.23.2-alpine3.19 as builder
+FROM golang:1.25.2-alpine3.22 AS builder
 
 LABEL org.opencontainers.image.description="Authenticator app"
 
-ENV APP /app
+ENV APP=/app
 
 WORKDIR $APP
 
@@ -29,17 +29,17 @@ RUN make proto
 
 RUN go build -o ./build cmd/main.go
 
-FROM golang:1.23.2-alpine3.19 as dev
+FROM golang:1.25.2-alpine3.22 AS dev
 
-WORKDIR /bin/app
+WORKDIR /app
 
 COPY . .
 
 RUN ["go", "install", "github.com/githubnemo/CompileDaemon@latest"]
 
-ENTRYPOINT CompileDaemon -log-prefix=false -build="go build -o ./bin/app ./cmd/" -command="./bin/app"
+ENTRYPOINT ["CompileDaemon", "-exclude=out/", "-verbose", "-build=go mod tidy && go build -o /app/bin /app/cmd/", "-command=/app/bin"]
 
-FROM alpine:latest as prod
+FROM alpine:latest AS prod
 
 RUN apk --no-cache add ca-certificates git bash
 
