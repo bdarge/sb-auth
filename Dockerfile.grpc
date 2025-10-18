@@ -9,14 +9,14 @@ WORKDIR $APP
 RUN apk update && apk add curl unzip make
 
 RUN PB_REL="https://github.com/protocolbuffers/protobuf/releases" && \
-    curl -LO $PB_REL/download/v23.4/protoc-23.4-linux-aarch_64.zip
+    curl -LO $PB_REL/download/v33.0/protoc-33.0-linux-aarch_64.zip
 
-RUN unzip protoc-23.4-linux-aarch_64.zip -d $APP/.local
+RUN unzip protoc-33.0-linux-aarch_64.zip -d $APP/.local
 
 ENV PATH="${PATH}:$APP/.local/bin"
 
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28 && \
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2 && \
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10 && \
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1 && \
     export PATH="$PATH:$(go env GOPATH)/bin"
 
 WORKDIR /tmp/app
