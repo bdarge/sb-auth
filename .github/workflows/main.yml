@@ -42,6 +42,7 @@ jobs:
         run: go test -race $(go list ./... | grep -v out)
   build-and-push-image:
     runs-on: ubuntu-latest
+    needs: test
     permissions:
       contents: read
       packages: write
