@@ -1,35 +1,53 @@
 package utils
 
 import (
+	"crypto/ecdsa"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/bdarge/auth/pkg/models"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/exp/slog"
-	"os"
-	"time"
 )
 
+// FileReader file reader interface
+type FileReader interface {
+	ReadFile(filename string) ([]byte, error)	
+}
+
+// FileReaderFunc reads a fle
+type FileReaderFunc func(filename string) ([]byte, error)
+
+// ReadFile executes the file reader func
+func (f FileReaderFunc) ReadFile(filename string) ([]byte, error) {
+	return f(filename)
+}
+
+// JwtWrapper jwt object
 type JwtWrapper struct {
-	TokenSecretKey        string
+	PrivateKeyPath        string
 	Issuer                string
 	TokenExpOn            int
 	RefreshTokenSecretKey string
 	RefreshTokenExpOn     int
+	FileReader FileReader
 }
 
+// SbClaims claim struct
 type SbClaims struct {
-	UserId     uint32   `json:"userId"`
-	AccountId  uint32   `json:"accountId"`
+	UserID     uint32   `json:"userId"`
+	AccountID  uint32   `json:"accountId"`
 	Email      string   `json:"email"`
 	Roles      []string `json:"roles"`
-	BusinessId uint32   `json:"businessId"`
+	BusinessID uint32   `json:"businessId"`
 	jwt.RegisteredClaims
 }
 
+// GenerateToken generate a token
 func (w *JwtWrapper) GenerateToken(user models.User, originalRefreshToken *string) (auth *models.Auth, err error) {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
 	expireOn := time.Now().Add(time.Minute * time.Duration(w.TokenExpOn))
 	slog.Info("generate token", "expires on", expireOn)
 
@@ -50,11 +68,23 @@ func (w *JwtWrapper) GenerateToken(user models.User, originalRefreshToken *strin
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claim)
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, claim)
 
-	t, err := token.SignedString([]byte(w.TokenSecretKey))
+	key, err := w.FileReader.ReadFile(w.PrivateKeyPath)
+	if err != nil {
+		slog.Error("Failed to read key", "error", err)
+		return nil, err
+	}
+	ecdsaPrivateKey, err := privateKey(key)
+	if err != nil {
+		slog.Error("Failed to get private key", "error", err)
+		return nil, err
+	}
+
+	t, err := token.SignedString(ecdsaPrivateKey)
 
 	if err != nil {
+		slog.Error("Signing failed", "error", err)
 		return nil, err
 	}
 
@@ -64,14 +94,14 @@ func (w *JwtWrapper) GenerateToken(user models.User, originalRefreshToken *strin
 			RefreshToken: *originalRefreshToken,
 		}, nil
 	}
-
+	slog.Info("Generate refresh token")
 	refreshTokenExpOn := time.Now().Add(time.Hour * time.Duration(w.RefreshTokenExpOn))
 	slog.Info("refresh token", "expires on", refreshTokenExpOn)
 
 	claim.RegisteredClaims.ExpiresAt = jwt.NewNumericDate(refreshTokenExpOn)
-	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claim)
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodES256, claim)
 
-	rt, err := refreshToken.SignedString([]byte(w.RefreshTokenSecretKey))
+	rt, err := refreshToken.SignedString(ecdsaPrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -82,21 +112,30 @@ func (w *JwtWrapper) GenerateToken(user models.User, originalRefreshToken *strin
 	}, nil
 }
 
+// ValidateToken validates a token
 func (w *JwtWrapper) ValidateToken(signedToken string) (claims *SbClaims, err error) {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
-
 	slog.Info("Validate token")
+
+	key, err := w.FileReader.ReadFile(fmt.Sprintf("%s.pub", w.PrivateKeyPath))
+	if err != nil {
+		slog.Error("Failed to read public key", "error", err)
+		return nil, err
+	}
+
+	pk, err := publicKey(key)
+	if err != nil {
+		return nil, err
+	}
 
 	token, err := jwt.ParseWithClaims(
 		signedToken,
 		&SbClaims{},
 		func(token *jwt.Token) (interface{}, error) {
 			// validate the alg
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			return []byte(w.TokenSecretKey), nil
+			return pk, nil
 		},
 	)
 
@@ -113,18 +152,28 @@ func (w *JwtWrapper) ValidateToken(signedToken string) (claims *SbClaims, err er
 	return nil, errors.New("token has expired or invalid")
 }
 
+// RefreshToken refreshes a token
 func (w *JwtWrapper) RefreshToken(refreshToken string) (claims *SbClaims, err error) {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
-
 	slog.Info("refresh token helper")
+
+	key, err := w.FileReader.ReadFile(fmt.Sprintf("%s.pub", w.PrivateKeyPath))
+	if err != nil {
+		slog.Error("Failed to read public key", "error", err)
+		return nil, err
+	}
+
+	pk, err := publicKey(key)
+	if err != nil {
+		return nil, err
+	}
+
 
 	token, err := jwt.ParseWithClaims(refreshToken, &SbClaims{}, func(token *jwt.Token) (interface{}, error) {
 		// validate the alg
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(w.RefreshTokenSecretKey), nil
+		return pk, nil
 	})
 
 	if claims, ok := token.Claims.(*SbClaims); ok && token.Valid {
@@ -135,4 +184,45 @@ func (w *JwtWrapper) RefreshToken(refreshToken string) (claims *SbClaims, err er
 	slog.Error(err.Error())
 
 	return nil, err
+}
+
+func publicKey(key []byte) (k *ecdsa.PublicKey, err error){
+	block, _ := pem.Decode(key)
+	genericPublicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	pk, ok := genericPublicKey.(*ecdsa.PublicKey)
+
+	if !ok {
+		return nil, errors.New("Failed to to get ecdsa public key")
+	}
+
+	return pk, nil
+}
+
+func privateKey(key []byte) (k *ecdsa.PrivateKey, err error) {
+	block, _ := pem.Decode(key)
+
+	// Check if it's a private key
+	if block == nil || block.Type != "EC PRIVATE KEY" {
+		return nil, errors.New("Failed to decode pem block")
+	}
+
+	// Get the encoded bytes
+	x509Encoded := block.Bytes
+
+	var parsedKey interface{}
+
+	parsedKey, err = x509.ParseECPrivateKey(x509Encoded)
+	if err != nil {
+		return nil, errors.New("Failed to parse private key")
+	}
+
+	ecdsaPrivateKey, ok := parsedKey.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, errors.New("Failed to get ecdsa private key")
+	}
+	
+	return ecdsaPrivateKey, nil
 }

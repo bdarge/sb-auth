@@ -14,6 +14,32 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+        with:
+          token: ${{ secrets.PAT }}
+          submodules: true
+      - name: Set up Go
+        id: go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '^1.25.1'
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
+      - name: Install proto gen
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+          make proto
+      - name: Test
+        run: go test -race $(go list ./... | grep -v out)
   build-and-push-image:
     runs-on: ubuntu-latest
     permissions:

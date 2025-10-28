@@ -9,7 +9,7 @@ import (
 type Config struct {
 	ServerPort string `mapstructure:"PORT"`
 	DSN string `mapstructure:"DSN"`
-	TokenSecretKey string `mapstructure:"JWT_TOKEN_SECRET_KEY"`
+	PrivateKeyPath string `mapstructure:"JWT_PRIVATE_KEY_PATH"`
 	TokenExpOn int `mapstructure:"JWT_TOKEN_EXP_ON"`
 	TokenIssuer string `mapstructure:"JWT_TOKEN_ISSUER"`
 	RefreshTokenExpOn int `mapstructure:"JWT_REFRESH_TOKEN_EXP_ON"`

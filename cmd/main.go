@@ -46,11 +46,12 @@ func main() {
 	dbHandler := db.Init(conf.DSN)
 
 	jwt := utils.JwtWrapper{
-		TokenSecretKey:        conf.TokenSecretKey,
+		PrivateKeyPath:        conf.PrivateKeyPath,
 		Issuer:                conf.TokenIssuer,
 		TokenExpOn:            conf.TokenExpOn,
 		RefreshTokenSecretKey: conf.RefreshTokenSecretKey,
 		RefreshTokenExpOn:     conf.RefreshTokenExpOn,
+		FileReader: utils.FileReaderFunc(os.ReadFile),
 	}
 
 	lis, err := net.Listen("tcp", conf.ServerPort)
