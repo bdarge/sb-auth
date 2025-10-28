@@ -143,7 +143,7 @@ func (s *Server) RefreshToken(_ context.Context, req *auth.RefreshTokenRequest) 
 	var user models.User
 
 	if s.DBHandler.DB.
-		Model(models.User{Model: models.Model{ID: claims.UserId}}).
+		Model(models.User{Model: models.Model{ID: claims.UserID}}).
 		Preload("Account").First(&user).Error != nil {
 		return &auth.LoginResponse{
 			Status: http.StatusForbidden,
