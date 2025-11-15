@@ -31,7 +31,6 @@ type JwtWrapper struct {
 	PrivateKeyPath        string
 	Issuer                string
 	TokenExpOn            int
-	RefreshTokenSecretKey string
 	RefreshTokenExpOn     int
 	FileReader FileReader
 }

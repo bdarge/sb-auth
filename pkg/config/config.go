@@ -13,7 +13,6 @@ type Config struct {
 	TokenExpOn int `mapstructure:"JWT_TOKEN_EXP_ON"`
 	TokenIssuer string `mapstructure:"JWT_TOKEN_ISSUER"`
 	RefreshTokenExpOn int `mapstructure:"JWT_REFRESH_TOKEN_EXP_ON"`
-	RefreshTokenSecretKey string `mapstructure:"JWT_REFRESH_TOKEN_SECRET_KEY"`
 	LogLevel slog.Level `mapstructure:"LOG_LEVEL"`
 }
 
